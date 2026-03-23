@@ -1,7 +1,23 @@
+import sys
 import json
 import time
 import random
 from kafka import KafkaProducer
+
+if len(sys.argv) < 2:
+    print("❌ Erreur : Précise l'utilisateur (ex: python producer.py Paul)")
+    sys.exit(1)
+
+current_user = sys.argv[1]
+user_to_partition = {"ranim": 0, "chayma": 1, "oumayma": 2}
+
+
+
+if current_user not in user_to_partition:
+    print("❌ Utilisateur inconnu. Choisis : ranim ,chayma et oumayma .")
+    sys.exit(1)
+
+partition_id = user_to_partition[current_user]
 
 producer = KafkaProducer(
     bootstrap_servers=['localhost:9092'],
@@ -10,47 +26,38 @@ producer = KafkaProducer(
 
 TOPIC_NAME = 'raw-user-events'
 
-# 1. On associe strictement chaque utilisateur à une partition (0, 1 ou 2)
-USERS = [
-    {"name": "Paul", "partition": 0},
-    {"name": "Marie", "partition": 1},
-    {"name": "Marc", "partition": 2}
-]
-
 PRODUCTS = [
-    {"product_id": "P1", "category": "PC", "price": 1200.0},
-    {"product_id": "P2", "category": "PC", "price": 850.0},
-    {"product_id": "P3", "category": "Smartphone", "price": 700.0}
+    {"category": "PC", "price": 1200.0},
+    {"category": "Smartphone", "price": 700.0},
+    {"category": "Ecouteurs", "price": 150.0}
 ]
 ACTIONS = ["view", "view", "click", "purchase"] 
 
-print("🚀 Démarrage du simulateur pour Paul, Marie et Marc...")
+print(f"📱 Démarrage de la session (Téléphone) de : {current_user}...")
 
 try:
     while True:
-        # On choisit un utilisateur au hasard
-        user = random.choice(USERS)
         product = random.choice(PRODUCTS)
         action = random.choice(ACTIONS)
 
         event = {
-            "user_id": user["name"],
+            "user_id": current_user,
             "category": product["category"],
             "action": action,
             "timestamp": int(time.time())
         }
 
-        # LA MAGIE DU ROUTAGE : On force l'envoi dans la bonne partition !
         producer.send(
             TOPIC_NAME, 
             value=event,
-            partition=user["partition"] # <-- On dicte la partition exacte
+            partition=partition_id
         )
         
-        print(f"Envoyé : {user['name']} a fait '{action}' sur {product['category']}")
-        time.sleep(random.uniform(1.0, 3.0))
+        print(f"[{current_user}] a fait '{action}' sur {product['category']}")
+        
+        time.sleep(random.uniform(2.0, 5.0))
 
 except KeyboardInterrupt:
-    print("\n🛑 Arrêt du simulateur.")
+    print(f"\n🛑 Fin de session pour {current_user}.")
 finally:
     producer.close()
